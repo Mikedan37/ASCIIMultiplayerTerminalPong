@@ -32,6 +32,8 @@ def receive_game_state(sock, stdscr):
         except BlockingIOError:
             pass
         except Exception as e:
+            if "Bad file descriptor" in str(e):  # Quit gracefully
+                break
             stdscr.addstr(0, 0, f"Error: {e}")
             stdscr.refresh()
             time.sleep(2)
@@ -72,6 +74,7 @@ def main(stdscr):
             elif key == ord('p'):  # Pause the game
                 sock.sendall("PAUSE\n".encode('utf-8'))
             elif key == ord('q'):  # Quit the game
+                sock.sendall("QUIT\n".encode('utf-8'))
                 break
     except Exception as e:
         stdscr.addstr(0, 0, f"Error: {e}")

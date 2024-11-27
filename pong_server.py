@@ -4,7 +4,6 @@ import socket
 import threading
 import time
 import random
-import os
 import logging
 
 # Logging setup
@@ -42,6 +41,11 @@ def reset_ball():
     game_state["ball_dx"] = random.choice([-1, 1])
     game_state["ball_dy"] = random.choice([-1, 1])
 
+def reset_game():
+    game_state["score1"] = 0
+    game_state["score2"] = 0
+    reset_ball()
+
 def handle_client(conn, addr, player_number):
     logging.info(f"Player {player_number} connected from {addr}")
     try:
@@ -51,6 +55,9 @@ def handle_client(conn, addr, player_number):
                 continue
 
             with lock:
+                if data == "QUIT":
+                    logging.info(f"Player {player_number} disconnected.")
+                    break
                 if data == "UP":
                     if player_number == 1 and game_state["player1_y"] > 1:
                         game_state["player1_y"] -= 1
@@ -64,7 +71,7 @@ def handle_client(conn, addr, player_number):
                 elif data == "PAUSE":
                     game_state["paused"] = not game_state["paused"]
     except ConnectionResetError:
-        logging.info(f"Player {player_number} disconnected.")
+        logging.info(f"Player {player_number} disconnected unexpectedly.")
     finally:
         with lock:
             if conn in clients:
@@ -79,7 +86,7 @@ def render_game():
         else:
             screen[i] = "|" + " " * (WIDTH - 2) + "|"
 
-    # Draw paddles
+    # Draw paddles and ball
     for i in range(5):
         if 1 <= game_state["player1_y"] + i < HEIGHT - 1:
             row = list(screen[game_state["player1_y"] + i])
@@ -90,13 +97,13 @@ def render_game():
             row[-3] = "|"
             screen[game_state["player2_y"] + i] = "".join(row)
 
-    # Draw ball
+    # Ball position
     if 1 <= game_state["ball_y"] < HEIGHT - 1:
         row = list(screen[game_state["ball_y"]])
         row[game_state["ball_x"]] = "O"
         screen[game_state["ball_y"]] = "".join(row)
 
-    # Add scores
+    # Scores
     score_line = f"Player 1: {game_state['score1']}    Player 2: {game_state['score2']}"
     screen.insert(0, score_line.center(WIDTH))
 
@@ -105,6 +112,10 @@ def render_game():
 def game_loop():
     while True:
         with lock:
+            if len(clients) < 2:
+                time.sleep(0.5)
+                continue
+
             if not game_state["paused"]:
                 # Ball movement logic
                 game_state["ball_x"] += game_state["ball_dx"]
@@ -113,6 +124,17 @@ def game_loop():
                 # Collision detection
                 if game_state["ball_y"] <= 1 or game_state["ball_y"] >= HEIGHT - 2:
                     game_state["ball_dy"] *= -1
+
+                # Send game state to clients
+                game_screen = render_game()
+                for conn in list(clients.keys()):
+                    try:
+                        conn.sendall(game_screen.encode('utf-8'))
+                    except BrokenPipeError:
+                        with lock:
+                            if conn in clients:
+                                del clients[conn]
+
         time.sleep(0.05)
 
 def start_server():
@@ -124,11 +146,12 @@ def start_server():
     player_number = 1
     while player_number <= 2:
         conn, addr = server_socket.accept()
-        clients[conn] = player_number
-        threading.Thread(target=handle_client, args=(conn, addr, player_number)).start()
+        with lock:
+            clients[conn] = player_number
+        threading.Thread(target=handle_client, args=(conn, addr, player_number), daemon=True).start()
         player_number += 1
 
-    game_loop()
+    threading.Thread(target=game_loop, daemon=True).start()
 
 if __name__ == "__main__":
     start_server()
