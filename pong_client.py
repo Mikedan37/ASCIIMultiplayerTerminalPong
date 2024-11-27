@@ -3,9 +3,10 @@
 import socket
 import curses
 import threading
+import time
 
 # Client configuration
-SERVER_IP = '<server-ip-here>'  # Replace with your Raspberry Pi's IP address
+SERVER_IP = '76.133.72.133'  # Replace with your server's public or local IP
 PORT = 5555
 BUFFER_SIZE = 1024
 
@@ -33,9 +34,8 @@ def receive_game_state(sock, stdscr):
         except Exception as e:
             stdscr.addstr(0, 0, f"Error: {e}")
             stdscr.refresh()
-            stdscr.getch()
+            time.sleep(2)
             break
-
 
 def main(stdscr):
     """
@@ -62,8 +62,8 @@ def main(stdscr):
     stdscr.refresh()
 
     # Handle user input
-    while True:
-        try:
+    try:
+        while True:
             key = stdscr.getch()
             if key == curses.KEY_UP:
                 sock.sendall("UP\n".encode('utf-8'))
@@ -71,22 +71,17 @@ def main(stdscr):
                 sock.sendall("DOWN\n".encode('utf-8'))
             elif key == ord('p'):  # Pause the game
                 sock.sendall("PAUSE\n".encode('utf-8'))
-            elif key == ord('r'):  # Restart the game after game over
-                sock.sendall("RESTART\n".encode('utf-8'))
             elif key == ord('q'):  # Quit the game
                 break
-        except Exception as e:
-            stdscr.addstr(0, 0, f"Error: {e}")
-            stdscr.refresh()
-            break
-
-    # Clean up
-    sock.close()
-    curses.nocbreak()
-    stdscr.keypad(False)
-    curses.echo()
-    curses.endwin()
-
+    except Exception as e:
+        stdscr.addstr(0, 0, f"Error: {e}")
+        stdscr.refresh()
+    finally:
+        sock.close()
+        curses.nocbreak()
+        stdscr.keypad(False)
+        curses.echo()
+        curses.endwin()
 
 if __name__ == "__main__":
     curses.wrapper(main)
