@@ -1,5 +1,3 @@
-Here’s a README.md file with clear instructions for setting up and running your Pong game:
-
 Multiplayer Pong Game
 
 This is a terminal-based multiplayer Pong game where two players can connect to a Raspberry Pi server over the network and play Pong using their terminals.
@@ -140,5 +138,3 @@ Contributors
 License
 
 This project is licensed under the MIT License.
-
-Copy and save this content as README.md in your project directory. Let me know if you need additional sections or edits
